@@ -10,12 +10,6 @@ declare_id!("FZvbeh26adPXUF4PQYs6LyeXmZtnMScmFSAa3SSAhD7R");
 pub mod vault_program {
     use super::*;
 
-    #[account]
-    pub struct Vault {
-        pub owner: Pubkey,
-        pub total_deposited: u64,
-    }
-
     pub fn create_vault(ctx: Context<CreateVault>, name: String) -> Result<()> {
         let vault = &mut ctx.accounts.vault;
         vault.owner = *ctx.accounts.creator.key;
@@ -24,57 +18,51 @@ pub mod vault_program {
     }
 
     pub fn deposit(ctx: Context<Deposit>, amount: u64) -> Result<()> {
-    let vault = &mut ctx.accounts.vault;
-    let depositor_account = &mut ctx.accounts.depositor_token_account;
-    let vault_token_account = &ctx.accounts.vault_token_account;
+        let vault = &mut ctx.accounts.vault;
+        let depositor_account = &mut ctx.accounts.depositor_token_account;
+        let vault_token_account = &ctx.accounts.vault_token_account;
 
-    // Perform the transfer from depositor to vault
-    let cpi_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: depositor_account.to_account_info(),
-            to: vault_token_account.to_account_info(),
-            authority: ctx.accounts.depositor.to_account_info(),
-        },
-    );
+        // Perform the transfer from depositor to vault
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: depositor_account.to_account_info(),
+                to: vault_token_account.to_account_info(),
+                authority: ctx.accounts.depositor.to_account_info(),
+            },
+        );
 
-    transfer(cpi_ctx, amount)?;
+        transfer(cpi_ctx, amount)?;
 
-    vault.total_deposited += amount;
-    Ok(())
-}
-
-
-
-
-    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
-    let vault = &mut ctx.accounts.vault;
-    let withdrawer_account = &mut ctx.accounts.withdrawer_token_account;
-    let vault_token_account = &ctx.accounts.vault_token_account;
-
-    // Check if the vault has sufficient funds
-    if vault.total_deposited < amount {
-        return Err(VaultError::InsufficientFunds.into());
+        vault.total_deposited += amount;
+        Ok(())
     }
 
-    // Perform the transfer from vault to withdrawer
-    let cpi_ctx = CpiContext::new(
-        ctx.accounts.token_program.to_account_info(),
-        Transfer {
-            from: vault_token_account.to_account_info(),
-            to: withdrawer_account.to_account_info(),
-            authority: vault.to_account_info(),
-        },
-    );
+    pub fn withdraw(ctx: Context<Withdraw>, amount: u64) -> Result<()> {
+        let vault = &mut ctx.accounts.vault;
+        let withdrawer_account = &mut ctx.accounts.withdrawer_token_account;
+        let vault_token_account = &ctx.accounts.vault_token_account;
 
-    transfer(cpi_ctx, amount)?;
+        // Check if the vault has sufficient funds
+        if vault.total_deposited < amount {
+            return Err(VaultError::InsufficientFunds.into());
+        }
 
-    vault.total_deposited -= amount;
-    Ok(())
-}
+        // Perform the transfer from vault to withdrawer
+        let cpi_ctx = CpiContext::new(
+            ctx.accounts.token_program.to_account_info(),
+            Transfer {
+                from: vault_token_account.to_account_info(),
+                to: withdrawer_account.to_account_info(),
+                authority: vault.to_account_info(),
+            },
+        );
 
+        transfer(cpi_ctx, amount)?;
 
-
+        vault.total_deposited -= amount;
+        Ok(())
+    }
 }
 
 #[derive(Accounts)]
